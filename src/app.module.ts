@@ -11,6 +11,10 @@ import { ProgramsModule } from './programs/programs.module.js';
 import { ApplicationsModule } from './applications/applications.module.js';
 import { DocumentTypesModule } from './document-types/document-types.module.js';
 import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
+import { ProgramsModule } from './programs/programs.module.js';
+import { ProgramsService } from './programs/programs.service.js';
+import { UniversitiesModule } from './universities/universities.module.js';
+import { UniversitiesService } from './universities/universities.service.js';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { StatusHistoryModule } from './status-history/status-history.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -61,6 +65,6 @@ import { ApplicationDocumentsModule } from './application-documents/application-
     AuthModule,
   ],
   controllers: [AppController, DocumentTypesController],
-  providers: [AppService],
+  providers: [AppService, UniversitiesService, ProgramsService],
 })
 export class AppModule {}
