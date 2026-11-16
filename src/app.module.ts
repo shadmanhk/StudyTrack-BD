@@ -14,6 +14,12 @@ import { ApplicationDocumentsModule } from './application-documents/application-
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { StatusHistoryModule } from './status-history/status-history.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
+import { DocumentTypesModule } from './document-types/document-types.module.js';
+import { DocumentTypesController } from './document-types/document-types.controller.js';
+import { AppointmentsModule } from './appointments/appointments.module.js';
+import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
+import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
 
 @Module({
   imports: [
@@ -54,7 +60,7 @@ import { AuthModule } from './auth/auth.module.js';
 
     AuthModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, DocumentTypesController],
   providers: [AppService],
 })
 export class AppModule {}
