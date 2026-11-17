@@ -11,6 +11,7 @@ import { ProgramsModule } from './programs/programs.module.js';
 import { ApplicationsModule } from './applications/applications.module.js';
 import { DocumentTypesModule } from './document-types/document-types.module.js';
 import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
+import { ApplicationsModule } from './applications/applications.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ProgramsModule } from './programs/programs.module.js';
