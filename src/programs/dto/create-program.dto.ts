@@ -11,7 +11,9 @@ import {
   Min,
 } from 'class-validator';
 
-import { DegreeLevel } from '../entities/program.entity.j*******port class CreateProgramDto {
+import { DegreeLevel } from '../entities/program.entity.js';
+
+export class CreateProgramDto {
   @IsUUID()
   universityId: string;
 

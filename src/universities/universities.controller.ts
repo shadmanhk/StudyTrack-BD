@@ -50,11 +50,11 @@ export class UniversitiesController {
 
   @Get()
   @ApiOperation({ summary: 'Get universities with pagination and filters' })
-  @ApiQuery({ name: 'page', required: fal******ample: 1 })
-  @ApiQuery({ name: 'limit', required: fal******ample: 10 })
-  @ApiQuery({ name: 'country', required: fal******ample: 'Germany' })
-  @ApiQuery({ name: 'city', required: fal******ample: 'Berlin' })
-  @ApiQuery({ name: 'isActive', required: fal******ample: true })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiQuery({ name: 'country', required: false, example: 'Germany' })
+  @ApiQuery({ name: 'city', required: false, example: 'Berlin' })
+  @ApiQuery({ name: 'isActive', required: false, example: true })
   @ApiResponse({ status: 200, description: 'Universities retrieved successfully' })
   findAll(
     @Query('page') page = '1',

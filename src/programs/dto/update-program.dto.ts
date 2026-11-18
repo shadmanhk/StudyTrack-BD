@@ -10,7 +10,9 @@ import {
   Min,
 } from 'class-validator';
 
-import { DegreeLevel } from '../entities/program.entity.j*******port class UpdateProgramDto {
+import { DegreeLevel } from '../entities/program.entity.js';
+
+export class UpdateProgramDto {
   @IsOptional()
   @IsUUID()
   universityId?: string;
