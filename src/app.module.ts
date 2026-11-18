@@ -11,23 +11,9 @@ import { ProgramsModule } from './programs/programs.module.js';
 import { ApplicationsModule } from './applications/applications.module.js';
 import { DocumentTypesModule } from './document-types/document-types.module.js';
 import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
-import { StatusHistoryModule } from './status-history/status-history.module.js';
-import { ApplicationsModule } from './applications/applications.module.js';
-import { AuthModule } from './auth/auth.module.js';
-import { UsersModule } from './users/users.module.js';
-import { ProgramsModule } from './programs/programs.module.js';
-import { ProgramsService } from './programs/programs.service.js';
-import { UniversitiesModule } from './universities/universities.module.js';
-import { UniversitiesService } from './universities/universities.service.js';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { StatusHistoryModule } from './status-history/status-history.module.js';
 import { AuthModule } from './auth/auth.module.js';
-import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
-import { DocumentTypesModule } from './document-types/document-types.module.js';
-import { DocumentTypesController } from './document-types/document-types.controller.js';
-import { AppointmentsModule } from './appointments/appointments.module.js';
-import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
-import { ApplicationDocumentsModule } from './application-documents/application-documents.module.js';
 
 @Module({
   imports: [
@@ -68,7 +54,7 @@ import { ApplicationDocumentsModule } from './application-documents/application-
 
     AuthModule,
   ],
-  controllers: [AppController, DocumentTypesController],
-  providers: [AppService, UniversitiesService, ProgramsService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
