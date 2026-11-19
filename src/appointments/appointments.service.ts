@@ -73,12 +73,16 @@ export class AppointmentsService {
     if (
       user.role === UserRole.STUDENT &&
       application.student.id === user.userId
-    ) return;
+    ) {
+      return;
+    }
 
     if (
       user.role === UserRole.COUNSELOR &&
       application.assignedCounselor?.id === user.userId
-    ) return;
+    ) {
+      return;
+    }
 
     throw new ForbiddenException(
       'You cannot access appointments for this application',
@@ -103,121 +107,124 @@ export class AppointmentsService {
     return appointment;
   }
 
- 
-async create(dto: CreateAppointmentDto, user: CurrentUser) {
-  const application = await this.getApplication(dto.applicationId);
-  this.assertCanAccess(application, user);
+  async create(dto: CreateAppointmentDto, user: CurrentUser) {
+    const application = await this.getApplication(dto.applicationId);
+    this.assertCanAccess(application, user);
 
-  const appointmentDate = new Date(dto.appointmentAt);
+    const appointmentDate = new Date(dto.appointmentAt);
 
-  if (Number.isNaN(appointmentDate.getTime())) {
-    throw new BadRequestException('Invalid appointment date');
-  }
-
-  return this.dataSource.transaction(async (manager) => {
-    const applicationRepo = manager.getRepository(Application);
-    const appointmentRepo = manager.getRepository(Appointment);
-    const historyRepo = manager.getRepository(StatusHistory);
-
-    // Lock the application during appointment creation.
-    const lockedApplication = await applicationRepo.findOne({
-      where: { id: dto.applicationId },
-      relations: {
-        student: true,
-        assignedCounselor: true,
-      },
-      lock: { mode: 'pessimistic_write' },
-    });
-
-    if (!lockedApplication) {
-      throw new NotFoundException('Application not found');
+    if (Number.isNaN(appointmentDate.getTime())) {
+      throw new BadRequestException('Invalid appointment date');
     }
 
-    this.assertCanAccess(lockedApplication, user);
+    return this.dataSource.transaction(async (manager) => {
+      const applicationRepo = manager.getRepository(Application);
+      const appointmentRepo = manager.getRepository(Appointment);
+      const historyRepo = manager.getRepository(StatusHistory);
 
-    const currentStatus = lockedApplication.status;
+      // Lock only the Application row.
+      // This avoids PostgreSQL's FOR UPDATE error on nullable LEFT JOIN relations.
+      const lockedApplication = await applicationRepo
+        .createQueryBuilder('application')
+        .leftJoinAndSelect('application.student', 'student')
+        .leftJoinAndSelect(
+          'application.assignedCounselor',
+          'assignedCounselor',
+        )
+        .where('application.id = :id', {
+          id: dto.applicationId,
+        })
+        .setLock('pessimistic_write', undefined, ['application'])
+        .getOne();
 
-    const canSchedule =
-      currentStatus === ApplicationStatus.SUBMITTED ||
-      currentStatus === ApplicationStatus.UNDER_REVIEW ||
-      currentStatus === ApplicationStatus.APPOINTMENT_SCHEDULED;
+      if (!lockedApplication) {
+        throw new NotFoundException('Application not found');
+      }
 
-    if (!canSchedule) {
-      throw new ConflictException(
-        'Appointments can only be scheduled for submitted or under-review applications',
-      );
-    }
+      this.assertCanAccess(lockedApplication, user);
 
-    // Prevent multiple active appointments for one application.
-    const activeAppointment = await appointmentRepo.findOne({
-      where: {
-        application: { id: dto.applicationId },
-        status: AppointmentStatus.SCHEDULED,
-      },
-    });
+      const currentStatus = lockedApplication.status;
 
-    if (activeAppointment) {
-      throw new ConflictException(
-        'This application already has an active scheduled appointment',
-      );
-    }
+      const canSchedule =
+        currentStatus === ApplicationStatus.SUBMITTED ||
+        currentStatus === ApplicationStatus.UNDER_REVIEW ||
+        currentStatus === ApplicationStatus.APPOINTMENT_SCHEDULED;
 
-    // A replacement appointment is allowed after cancellation or rescheduling.
-    if (currentStatus === ApplicationStatus.APPOINTMENT_SCHEDULED) {
-      const previousAppointmentCount = await appointmentRepo.count({
+      if (!canSchedule) {
+        throw new ConflictException(
+          'Appointments can only be scheduled for submitted or under-review applications',
+        );
+      }
+
+      // Prevent multiple active appointments for one application.
+      const activeAppointment = await appointmentRepo.findOne({
         where: {
           application: { id: dto.applicationId },
-          status: In([
-            AppointmentStatus.CANCELLED,
-            AppointmentStatus.RESCHEDULED,
-          ]),
+          status: AppointmentStatus.SCHEDULED,
         },
       });
 
-      if (previousAppointmentCount === 0) {
+      if (activeAppointment) {
         throw new ConflictException(
-          'A replacement appointment requires a previously cancelled or rescheduled appointment',
+          'This application already has an active scheduled appointment',
         );
       }
-    }
 
-    const appointment = appointmentRepo.create({
-      application: lockedApplication,
-      appointmentType: dto.appointmentType,
-      embassyName: dto.embassyName ?? null,
-      country: dto.country,
-      city: dto.city ?? null,
-      appointmentAt: appointmentDate,
-      timeZone: dto.timeZone ?? null,
-      referenceNumber: dto.referenceNumber ?? null,
-      status: AppointmentStatus.SCHEDULED,
-      notes: dto.notes ?? null,
-    });
+      // A replacement appointment is allowed after cancellation or rescheduling.
+      if (currentStatus === ApplicationStatus.APPOINTMENT_SCHEDULED) {
+        const previousAppointmentCount = await appointmentRepo.count({
+          where: {
+            application: { id: dto.applicationId },
+            status: In([
+              AppointmentStatus.CANCELLED,
+              AppointmentStatus.RESCHEDULED,
+            ]),
+          },
+        });
 
-    const savedAppointment = await appointmentRepo.save(appointment);
+        if (previousAppointmentCount === 0) {
+          throw new ConflictException(
+            'A replacement appointment requires a previously cancelled or rescheduled appointment',
+          );
+        }
+      }
 
-    // Update application status and history only when its status changes.
-    if (currentStatus !== ApplicationStatus.APPOINTMENT_SCHEDULED) {
-      lockedApplication.status =
-        ApplicationStatus.APPOINTMENT_SCHEDULED;
-
-      await applicationRepo.save(lockedApplication);
-
-      const history = historyRepo.create({
+      const appointment = appointmentRepo.create({
         application: lockedApplication,
-        previousStatus: currentStatus,
-        newStatus: ApplicationStatus.APPOINTMENT_SCHEDULED,
-        changedBy: { id: user.userId } as User,
-        remarks: 'Application appointment scheduled',
+        appointmentType: dto.appointmentType,
+        embassyName: dto.embassyName ?? null,
+        country: dto.country,
+        city: dto.city ?? null,
+        appointmentAt: appointmentDate,
+        timeZone: dto.timeZone ?? null,
+        referenceNumber: dto.referenceNumber ?? null,
+        status: AppointmentStatus.SCHEDULED,
+        notes: dto.notes ?? null,
       });
 
-      await historyRepo.save(history);
-    }
+      const savedAppointment = await appointmentRepo.save(appointment);
 
-    return savedAppointment;
-  });
-}
+      // Update application status and history only when its status changes.
+      if (currentStatus !== ApplicationStatus.APPOINTMENT_SCHEDULED) {
+        lockedApplication.status =
+          ApplicationStatus.APPOINTMENT_SCHEDULED;
 
+        await applicationRepo.save(lockedApplication);
+
+        const history = historyRepo.create({
+          application: lockedApplication,
+          previousStatus: currentStatus,
+          newStatus: ApplicationStatus.APPOINTMENT_SCHEDULED,
+          changedBy: { id: user.userId } as User,
+          remarks: 'Application appointment scheduled',
+        });
+
+        await historyRepo.save(history);
+      }
+
+      return savedAppointment;
+    });
+  }
 
   async findAll(
     user: CurrentUser,
@@ -262,6 +269,7 @@ async create(dto: CreateAppointmentDto, user: CurrentUser) {
   async findOne(id: string, user: CurrentUser) {
     const appointment = await this.getAppointment(id);
     this.assertCanAccess(appointment.application, user);
+
     return appointment;
   }
 
@@ -279,17 +287,33 @@ async create(dto: CreateAppointmentDto, user: CurrentUser) {
       );
     }
 
-    if (dto.country !== undefined) appointment.country = dto.country;
+    if (dto.country !== undefined) {
+      appointment.country = dto.country;
+    }
+
     if (dto.appointmentAt !== undefined) {
       appointment.appointmentAt = new Date(dto.appointmentAt);
     }
-    if (dto.embassyName !== undefined) appointment.embassyName = dto.embassyName;
-    if (dto.city !== undefined) appointment.city = dto.city;
-    if (dto.timeZone !== undefined) appointment.timeZone = dto.timeZone;
+
+    if (dto.embassyName !== undefined) {
+      appointment.embassyName = dto.embassyName;
+    }
+
+    if (dto.city !== undefined) {
+      appointment.city = dto.city;
+    }
+
+    if (dto.timeZone !== undefined) {
+      appointment.timeZone = dto.timeZone;
+    }
+
     if (dto.referenceNumber !== undefined) {
       appointment.referenceNumber = dto.referenceNumber;
     }
-    if (dto.notes !== undefined) appointment.notes = dto.notes;
+
+    if (dto.notes !== undefined) {
+      appointment.notes = dto.notes;
+    }
 
     return this.appointmentRepository.save(appointment);
   }
@@ -357,6 +381,7 @@ async create(dto: CreateAppointmentDto, user: CurrentUser) {
     }
 
     appointment.status = AppointmentStatus.CANCELLED;
+
     await this.appointmentRepository.save(appointment);
 
     return {

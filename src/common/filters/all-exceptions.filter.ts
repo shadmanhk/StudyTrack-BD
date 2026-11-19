@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 
@@ -44,10 +45,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof QueryFailedError) {
       const databaseError = exception as QueryFailedError & {
-        driverError?: { code?: string };
+        driverError?: {
+          code?: string;
+          message?: string;
+        };
       };
 
       const databaseCode = databaseError.driverError?.code;
+      const databaseMessage = databaseError.driverError?.message;
+
+      // Log database details in the server terminal for debugging.
+      // Do not expose SQL details or database messages in API responses.
+      this.logger.error(
+        `Database error: Code=${databaseCode ?? 'UNKNOWN'}, Message=${databaseMessage ?? 'Unknown database error'}`,
+        exception.stack,
+      );
 
       if (databaseCode === '23505') {
         statusCode = HttpStatus.CONFLICT;
@@ -64,14 +76,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode = HttpStatus.BAD_REQUEST;
         message = 'The submitted data violates a database constraint';
         error = 'Bad Request';
-      } else {
-        this.logger.error('Database operation failed');
       }
     } else {
       this.logger.error(
         exception instanceof Error
           ? exception.message
           : 'Unknown server error',
+        exception instanceof Error ? exception.stack : undefined,
       );
     }
 
